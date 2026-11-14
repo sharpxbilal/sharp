@@ -1,0 +1,14 @@
+{
+  "name": "friendcxgoku",
+  "account_id": "536af31a05051a27bf948d02247639be",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.lua"],
+      "fallthrough": true
+    }
+  ]
+}
