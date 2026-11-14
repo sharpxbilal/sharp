@@ -1,6 +1,6 @@
 {
-  "name": "friendcxgoku",
-  "account_id": "536af31a05051a27bf948d02247639be",
+  "name": "sharp",
+  "account_id": "9dc8d8b91f703446dd444d6955cc9c7f",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-19",
   "workers_dev": true,
