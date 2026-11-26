@@ -817,7 +817,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2029-11-22 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
@@ -2714,10 +2714,14 @@ local function GetConfigPaths(fileName)
     return paths
 end
 
-local ConfigFileName = "TEST_JOIN.txt"
+local ConfigFileName = "JOIN_PGHACKS1.txt"
 _G.LastConfigSaveStr = ""
 
 _G.SaveModSettings = function()
+    -- KEY_VALIDATED guard: SARE callers se protect karta hai.
+    -- LizardVip timers, AutoSaveLoop, menu callbacks — koi bhi
+    -- unlicensed state mein file nahi likhega.
+    if not _G.KEY_VALIDATED then return end
     pcall(function()
         local function serializeTable(tbl, indent)
             indent = indent or ""
@@ -2805,19 +2809,50 @@ _G.LoadModSettings = function()
 end
 
 local function AutoSaveLoop()
-    pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
-    pcall(function()
-        local okTicker, ticker = pcall(require, "common.time_ticker") 
-        if okTicker and ticker and ticker.AddTimerOnce then 
+    -- Sirf tab save karo jab key verified ho — warna ForceDisableAllFeatures
+    -- ka wiped state file mein likh jaata hai aur settings permanently reset ho jaati hain
+    if _G.KEY_VALIDATED then
+        pcall(function() if _G.SaveModSettings then _G.SaveModSettings() end end)
+    end
+    local okTicker = pcall(function()
+        local okT, ticker = pcall(require, "common.time_ticker")
+        if okT and ticker and ticker.AddTimerOnce then
             ticker.AddTimerOnce(3.0, AutoSaveLoop)
+        else
+            _G.AutoSaveRunning = false
         end
     end)
+    if not okTicker then _G.AutoSaveRunning = false end
 end
 
-if not _G.ModConfigLoaded then
-    _G.LoadModSettings()
+-- Settings hamesha load karo — ModConfigLoaded guard hata diya
+-- taaki cold restart pe bhi load ho aur key verify hone ke baad
+-- ForceDisableAllFeatures ne jo kuch wipe kiya wo file se wapas aa jaye
+_G.LoadModSettings()
+if not _G.AutoSaveRunning then
+    _G.AutoSaveRunning = true
     AutoSaveLoop()
-    _G.ModConfigLoaded = true
+end
+_G.ModConfigLoaded = true
+
+-- Jab bhi license inactive jaaye (logout, match end, map change) to _LicenseWasActive
+-- reset hoga — taaki dobara active hone par settings automatically restore hon.
+-- Ek hi activation event mein ek baar load hoga (active & not _LicenseWasActive).
+_G._LicenseWasActive = false
+local _origBRLicenseActive = BRLicenseActive
+BRLicenseActive = function()
+    local active = _origBRLicenseActive()
+    if active and not _G._LicenseWasActive then
+        -- License active hua (pehli baar ya logout/match-end ke baad) —
+        -- file se saved settings restore karo
+        _G._LicenseWasActive = true
+        pcall(function() _G.LoadModSettings() end)
+    elseif not active then
+        -- License inactive (logout, map change, match transition) —
+        -- reset karo taaki next activation par reload trigger ho
+        _G._LicenseWasActive = false
+    end
+    return active
 end
 
 _G.ReadLiveConfig = function()
@@ -16406,8 +16441,14 @@ local function MainLoop()
         _G.pghacksState.EnemyMarks = {}
         _G.AK_OrigHitboxes = {}
         _G.AK_ModdedPhysAssets = {}
+        -- Match transition: LastMagicConfigHash reset karo taaki match 2 mein
+        -- PhysicsAsset fresh originals ke saath dobara scale ho (not from match-1 modified values)
+        _G.pghacksState.LastMagicConfigHash = ""
+        _G.pghacksState.MagicUpdateVersion = (_G.pghacksState.MagicUpdateVersion or 0) + 1
         _G.pghacksState.PrevGraphicsState = {}
-        return 
+        -- _LicenseWasActive ab wrapper khud reset karta hai (inactive tick par)
+        -- match-end block mein alag se reset ki zaroorat nahi
+        return
     end
 
 --    INIT 'AddOutfit' =====
