@@ -817,7 +817,7 @@ isExpired = (currentTime > limitTime)
 -- ONLINE KEY / LICENSE SYSTEM
 -- Jab tak key na dalo, koi bhi feature kaam nahi karega
 -- ============================================================================
-local MASTER_AHSAN_EXPIRY_BD = "2026-11-22 23:59:00"
+local MASTER_AHSAN_EXPIRY_BD = "2029-11-22 23:59:00"
 
 -- 1. LICENSE CONFIG + CORE
 -- ============================================================================
